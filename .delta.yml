@@ -34,13 +34,50 @@ jobs:
         run: docker-compose -f docker-compose-canal.yml pull
 
       - name: TiKV version
-        run: docker run pingcap/tikv:release-4.0-nightly -V
+        run: docker run --rm pingcap/tikv:release-4.0-nightly -V
 
       - name: Build Integration Framework
         run: cd integration ; go build
 
+      - name: Hardlink workdir
+        run: mkdir /tmp/ticdc ; mount --bind /__ci/work /tmp/ticdc
+
       - name: Run Integration Framework
-        run: cd integration ; ./integration -protocol=canal
+        run: cd /tmp/ticdc/integration ; ./integration -protocol=canal
+
+      - name: Clean Up
+        when: always
+        run: ./scripts/avro-local-test.sh down
+  MySQL-integration:
+    machine:
+      vcpu: 8
+      ram: 16GB
+    steps:
+      - name: Install Go
+        when: first_run
+        run: |
+          echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list.d/backports.list
+          apt update
+          apt -t buster-backports install -y golang-1.14
+          update-alternatives --install /usr/bin/go go /usr/lib/go-1.14/bin/go 100 --slave /usr/bin/gofmt gofmt /usr/lib/go-1.14/bin/gofmt
+
+      - name: Update Vendor
+        run: go mod vendor
+
+      - name: Pull images
+        run: docker-compose -f docker-compose-avro.yml pull
+
+      - name: TiKV version
+        run: docker run --rm pingcap/tikv:release-4.0-nightly -V
+
+      - name: Build Integration Framework
+        run: cd integration ; go build
+      
+      - name: Hardlink workdir
+        run: mkdir /tmp/ticdc ; mount --bind /__ci/work /tmp/ticdc
+
+      - name: Run Integration Framework
+        run: cd /tmp/ticdc/integration ; ./integration -protocol=mysql
 
       - name: Clean Up
         when: always
