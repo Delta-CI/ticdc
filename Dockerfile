@@ -1,6 +1,8 @@
 FROM golang:1.14-alpine as builder
 RUN apk add --no-cache git make bash
 WORKDIR /go/src/github.com/pingcap/ticdc
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
 ENV CDC_ENABLE_VENDOR=0
 RUN make
